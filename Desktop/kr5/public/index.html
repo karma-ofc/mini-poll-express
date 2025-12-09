@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Мини-опросник по программированию</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .question { margin-bottom: 20px; }
+    .options { margin-left: 20px; }
+    button { margin: 10px 0; padding: 10px; }
+    #results { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Мини-опросник по программированию</h1>
+  <div id="poll-container">
+    <button id="load-questions">Загрузить вопросы</button>
+    <div id="questions"></div>
+    <button id="submit-answers" style="display:none;">Отправить ответы</button>
+  </div>
+  <div id="results"></div>
+
+  <script>
+    let questions = [];
+    let currentQuestionIndex = 0;
+
+    document.getElementById('load-questions').addEventListener('click', loadQuestions);
+    document.getElementById('submit-answers').addEventListener('click', submitAnswers);
+
+    async function loadQuestions() {
+      try {
+        const response = await fetch('/api/questions');
+        questions = await response.json();
+        displayQuestions();
+        document.getElementById('submit-answers').style.display = 'block';
+        document.getElementById('load-questions').style.display = 'none';
+      } catch (error) {
+        console.error('Ошибка загрузки вопросов:', error);
+      }
+    }
+
+    function displayQuestions() {
+      const container = document.getElementById('questions');
+      container.innerHTML = '';
+      questions.forEach((q, index) => {
+        const div = document.createElement('div');
+        div.className = 'question';
+        div.innerHTML = `
+          <h3>${q.question}</h3>
+          <div class="options">
+            ${q.options.map(option => `
+              <label>
+                <input type="radio" name="question-${q.id}" value="${option}">
+                ${option}
+              </label><br>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function submitAnswers() {
+      const answers = [];
+      questions.forEach(q => {
+        const selected = document.querySelector(`input[name="question-${q.id}"]:checked`);
+        if (selected) {
+          answers.push({ questionId: q.id, answer: selected.value });
+        }
+      });
+
+      if (answers.length !== questions.length) {
+        alert('Пожалуйста, ответьте на все вопросы.');
+        return;
+      }
+
+      try {
+        const promises = answers.map(answer => fetch('/api/answers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(answer)
+        }));
+        await Promise.all(promises);
+        document.getElementById('results').innerHTML = '<p>Спасибо за участие в опросе!</p>';
+        document.getElementById('submit-answers').style.display = 'none';
+      } catch (error) {
+        console.error('Ошибка отправки ответов:', error);
+      }
+    }
+  </script>
+</body>
+</html>
